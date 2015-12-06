@@ -56,7 +56,7 @@ public class Cpu {
     private int csbase;             // CS << 4
     private int nextip;             // new IP after current instruction
     private int jumpip;             // current instruction jumped to new IP
-    //private int modrm;              // modRM byte for current instruction
+    private int modrm;              // modRM byte for current instruction
     private int insnprf;            // repeat prefix for current insn
     private int insnreg;            // modRM reg field for current insn
     private int insnseg;            // segment register for current insn
@@ -78,7 +78,8 @@ public class Cpu {
      * An InvalidOpcodeException is thrown when the CPU runs into
      * an undefined opcode.
      */
-    public class InvalidOpcodeException extends Exception {
+    @SuppressWarnings("serial")
+    public class InvalidOpcodeException extends RuntimeException {
         public InvalidOpcodeException(String s) { super(s); }
         public String getMessage() {
             String s1 = super.getMessage();
@@ -324,7 +325,11 @@ public class Cpu {
         return v;
     }
 
+
     // Fetch and decode the ModRM byte and compute effective address
+    private final void decodeModRm() {
+      decodeModRm(modrm);
+    }
     private final void decodeModRm(int modrm)
     {
         nextip++;
@@ -622,6 +627,26 @@ public class Cpu {
             flushCycles();
     }
 
+    private void aluOps(Operation op) {
+      switch (op.b & 0xf9) {
+        case 0x00: aluAddB(op.v); break;
+        case 0x01: aluAddW(op.v); break;
+        case 0x08: aluOrB(op.v);  break;
+        case 0x09: aluOrW(op.v);  break;
+        case 0x10: aluAdcB(op.v); break;
+        case 0x11: aluAdcW(op.v); break;
+        case 0x18: aluSbbB(op.v); break;
+        case 0x19: aluSbbW(op.v); break;
+        case 0x20: aluAndB(op.v); break;
+        case 0x21: aluAndW(op.v); break;
+        case 0x28: aluSubB(op.v); break;
+        case 0x29: aluSubW(op.v); break;
+        case 0x30: aluXorB(op.v); break;
+        case 0x31: aluXorW(op.v); break;
+        case 0x38: aluCmpB(op.v); break;
+        case 0x39: aluCmpW(op.v); break;
+      }
+    }
 
     /**
      * Decodes and executes one instruction.
@@ -640,8 +665,10 @@ public class Cpu {
         intsEnabled = (flags & flIF) != 0;
         trapEnabled = ((flags & flTF) != 0 && !trapSkipFirst);
         trapSkipFirst = false;
+        
+        boolean prefix_byte_flag = false;
 
-di:     while (true) { // Restart here after decoding a prefix byte
+        while (true) { // Restart here after decoding a prefix byte
 
             // Check for instruction crossing segment boundary
             if ((nextip & 0xffff0000) != 0)
@@ -649,76 +676,145 @@ di:     while (true) { // Restart here after decoding a prefix byte
                   "Instruction crossing segment limit");
             
             int addr = csbase + nextip++;
-            
             Operation op = mem.loadOp(addr);
             if (op != null) {
               op.exec();
-              continue;
+              break;
             }
 
             // Fetch opcode and possible modRM byte
             int codeword = mem.loadWord(addr);
             int b = codeword & 0xff;
-            int modrm = codeword >> 8;
-            //nextip++;
+            modrm = codeword >> 8;
+            
+            prefix_byte_flag = false;
 
             if (b < 0x40 && (b & 0x07) < 6) {
 
                 // General ALU operations
-                int v;
+                int v = -1;
                 switch (b & 0x07) {
                   case 0: // Eb,Gb
-                    decodeModRm(modrm);
-                    v = getRegByte(insnreg);
-                    cycl += 3;
+                    mem.storeOp(addr, op = new Operation(b, modrm) {
+                      @Override
+                      protected void init() {
+                      }
+                      
+                      @Override
+                      public void exec() {
+                        decodeModRm(modrm);
+                        v = getRegByte(insnreg);
+                        cycl += 3;
+                        
+                        aluOps(this);
+                      }
+                    });
+                    
+                    op.exec();
                     break;
                   case 1: // Ev,Gv
-                    decodeModRm(modrm);
-                    v = reg[insnreg];
-                    cycl += 3;
+                    mem.storeOp(addr, op = new Operation(b, modrm) {
+                      @Override
+                      protected void init() {
+                      }
+                      
+                      @Override
+                      public void exec() {
+                        decodeModRm(modrm);
+                        v = reg[insnreg];
+                        cycl += 3;
+                        
+                        aluOps(this);
+                      }
+                    });
+                    
+                    op.exec();
                     break;
                   case 2: // Gb,Eb
-                    decodeModRm(modrm);
-                    v = loadByte();
-                    insnaddr = insnreg | 0x10000;
-                    cycl += 3;
+                    mem.storeOp(addr, op = new Operation(b, modrm) {
+                      @Override
+                      protected void init() {
+                      }
+                      
+                      @Override
+                      public void exec() {
+                        decodeModRm(modrm);
+                        v = loadByte();
+                        insnaddr = insnreg | 0x10000;
+                        cycl += 3;
+                        
+                        aluOps(this);
+                      }
+                    });
+                    
+                    op.exec();
                     break;
                   case 3: // Gv,Ev
-                    decodeModRm(modrm);
-                    v = loadWord();
-                    insnaddr = insnreg | 0x10000;
-                    cycl += 3;
+                    mem.storeOp(addr, op = new Operation(b, modrm) {
+                      @Override
+                      protected void init() {
+                      }
+                      
+                      @Override
+                      public void exec() {
+                        decodeModRm(modrm);
+                        v = loadWord();
+                        insnaddr = insnreg | 0x10000;
+                        cycl += 3;
+                        
+                        aluOps(this);
+                      }
+                    });
+                    
+                    op.exec();
                     break;
                   case 4: // AL,Ib
-                    v = getImmByte();
-                    insnaddr = regAX | 0x10000;
-                    cycl += 4;
+                    mem.storeOp(addr, op = new Operation(b) {
+                      @Override
+                      protected void init() {
+                        // v = getImmByte() without++
+                        v = mem.loadByte(csbase + nextip);
+                        v1 = regAX | 0x10000;
+                      }
+                      
+                      @Override
+                      public void exec() {
+                        ++nextip;
+                        
+                        insnaddr = v1; // regAX | 0x10000;
+                        cycl += 4;
+                        
+                        aluOps(this);
+                      }
+                    });
+                    
+                    op.exec();
                     break;
                   case 5: // AX,Iv
-                    v = getImmWord();
-                    insnaddr = regAX | 0x10000;
-                    cycl += 4;
+                    mem.storeOp(addr, op = new Operation(b) {
+                      @Override
+                      protected void init() {
+                        // v = getImmWord() without++
+                        v = mem.loadWord(csbase + nextip);
+                        v1 = regAX | 0x10000;
+                      }
+                      
+                      @Override
+                      public void exec() {
+                        ++nextip;
+                        ++nextip;
+                        
+                        insnaddr = v1; // regAX | 0x10000;
+                        cycl += 4;
+                        
+                        aluOps(this);
+                      }
+                    });
+                    
+                    op.exec();
                     break;
                   default:
                     throw new RuntimeException("Cpu.java: cannot happen");
-                }
-                switch (b & 0xf9) {
-                  case 0x00: aluAddB(v); break;
-                  case 0x01: aluAddW(v); break;
-                  case 0x08: aluOrB(v);  break;
-                  case 0x09: aluOrW(v);  break;
-                  case 0x10: aluAdcB(v); break;
-                  case 0x11: aluAdcW(v); break;
-                  case 0x18: aluSbbB(v); break;
-                  case 0x19: aluSbbW(v); break;
-                  case 0x20: aluAndB(v); break;
-                  case 0x21: aluAndW(v); break;
-                  case 0x28: aluSubB(v); break;
-                  case 0x29: aluSubW(v); break;
-                  case 0x30: aluXorB(v); break;
-                  case 0x31: aluXorW(v); break;
-                  case 0x38: aluCmpB(v); break;
-                  case 0x39: aluCmpW(v); break;
                 }
 
             } else if ((b >= 0x40 && b < 0x80) || (b & 0xf0) == 0xb0) {
@@ -726,38 +822,123 @@ di:     while (true) { // Restart here after decoding a prefix byte
                 // Instructions with operand encoded in first byte
                 switch (b & 0xf8) {
                   case 0x40: // INC Gv
-                    insnaddr = 0x10000 | (b & 7);
-                    opIncW();
+                    mem.storeOp(addr, op = new Operation(b) {
+                      @Override
+                      protected void init() {
+                        v = 0x10000 | (b & 7);
+                      }
+                      
+                      @Override
+                      public void exec() {
+                        insnaddr = v; // 0x10000 | (b & 7);
+                        opIncW();
+                      }
+                    });
+                    
+                    op.exec();
                     break;
                   case 0x48: // DEC Gv
-                    insnaddr = 0x10000 | (b & 7);
-                    opDecW();
+                    mem.storeOp(addr, op = new Operation(b) {
+                      @Override
+                      protected void init() {
+                        v = 0x10000 | (b & 7);
+                      }
+                      
+                      @Override
+                      public void exec() {
+                        insnaddr = v; // 0x10000 | (b & 7);
+                        opDecW();
+                      }
+                    });
+                    
+                    op.exec();
                     break;
                   case 0x50: // PUSH Gv
-                    if ((b & 7) == regSP)
-                        opPushW(reg[regSP] - 2);  // 8086 specific semantics
-                    else
-                        opPushW(reg[b&7]);
-                    cycl += 11;
+                    mem.storeOp(addr, op = new Operation(b) {
+                      @Override
+                      protected void init() {
+                        v = b & 7;
+                      }
+                      
+                      @Override
+                      public void exec() {
+                        if (v /*(b & 7)*/ == regSP)
+                            opPushW(reg[regSP] - 2);  // 8086 specific semantics
+                        else
+                            opPushW(reg[b&7]);
+                        
+                        cycl += 11;
+                      }
+                    });
+                    
+                    op.exec();
                     break;
                   case 0x58: // POP Gv
-                    reg[b&7] = opPopW();
-                    cycl += 8;
+                    mem.storeOp(addr, op = new Operation(b) {
+                      @Override
+                      protected void init() {
+                        v = b & 7;
+                      }
+                      
+                      @Override
+                      public void exec() {
+                        reg[v /*b&7*/] = opPopW();
+                        cycl += 8;
+                      }
+                    });
+                    
+                    op.exec();
                     break;
                   case 0x60:
                   case 0x68:
                     throw new InvalidOpcodeException("Undefined opcode");
                   case 0x70: // Jcc
                   case 0x78: // Jcc
-                    opJccB(b & 0x0f);
+                    mem.storeOp(addr, op = new Operation(b) {
+                      @Override
+                      protected void init() {
+                        v = b & 0x0f;
+                      }
+                      
+                      @Override
+                      public void exec() {
+                        opJccB(v /*b & 0x0f*/);
+                      }
+                    });
+                    
+                    op.exec();
                     break;
                   case 0xb0: // MOV Gb,Ib
-                    putRegByte(b&7, getImmByte());
-                    cycl += 4;
+                    mem.storeOp(addr, op = new Operation(b) {
+                      @Override
+                      protected void init() {
+                        v = b & 7;
+                      }
+                      
+                      @Override
+                      public void exec() {
+                        putRegByte(v /*b&7*/, getImmByte());
+                        cycl += 4;
+                      }
+                    });
+                    
+                    op.exec();
                     break;
                   case 0xb8: // MOV Gv,Iv
-                    reg[b&7] = getImmWord();
-                    cycl += 4;
+                    mem.storeOp(addr, op = new Operation(b) {
+                      @Override
+                      protected void init() {
+                        v = b & 7;
+                      }
+                      
+                      @Override
+                      public void exec() {
+                        reg[v /*b&7*/] = getImmWord();
+                        cycl += 4;
+                      }
+                    });
+                    
+                    op.exec();
                     break;
                 }
 
@@ -765,171 +946,245 @@ di:     while (true) { // Restart here after decoding a prefix byte
 
                 // All other cases
                 switch (b) {
-                  case 0x06: // PUSH ES (Bytes: 1, Cycles: 10)
-                    mem.storeOp(addr, op = new Operation(modrm) {
+                  case 0x06: // PUSH ES
+                    mem.storeOp(addr, op = new Operation(b) {
+                      @Override
+                      protected void init() {
+                      }
+                      
                       @Override
                       public void exec() {
                         opPushW(sreg[sregES]);
                         cycl += 10;
                       }
                     });
+                    
                     op.exec();
                     break;
                   case 0x07: // POP ES
-                    mem.storeOp(addr, op = new Operation(modrm) {
+                    mem.storeOp(addr, op = new Operation(b) {
+                      @Override
+                      protected void init() {
+                      }
+                      
                       @Override
                       public void exec() {
                         sreg[sregES] = opPopW();
                         cycl += 8;
                       }
                     });
+                    
                     op.exec();
                     break;
                   case 0x0e: // PUSH CS
-                    mem.storeOp(addr, op = new Operation(modrm) {
+                    mem.storeOp(addr, op = new Operation(b) {
+                      @Override
+                      protected void init() {
+                      }
+                      
                       @Override
                       public void exec() {
                         opPushW(sreg[sregCS]);
                         cycl += 10;
                       }
                     });
+                    
                     op.exec();
                     break;
                   case 0x16: // PUSH SS
-                    mem.storeOp(addr, op = new Operation(modrm) {
+                    mem.storeOp(addr, op = new Operation(b) {
+                      @Override
+                      protected void init() {
+                      }
+                      
                       @Override
                       public void exec() {
                         opPushW(sreg[sregSS]);
                         cycl += 10;
                       }
                     });
+                    
                     op.exec();
                     break;
                   case 0x17: // POP SS
-                    mem.storeOp(addr, op = new Operation(modrm) {
-                      @Override
-                      public void exec() {
-                        sreg[sregSS] = opPopW();
-                        cycl += 8;
-                        insnprf = insnseg = -1;
-                      }
-                    });
-                    op.exec();
-                    continue di; // block interrupts after loading SS
+                    sreg[sregSS] = opPopW();
+                    cycl += 8;
+                    insnprf = insnseg = -1;
+                    // block interrupts after loading SS
+                    prefix_byte_flag = true;
+                    break;
                   case 0x1e: // PUSH DS
-                    mem.storeOp(addr, op = new Operation(modrm) {
+                    mem.storeOp(addr, op = new Operation(b) {
+                      @Override
+                      protected void init() {
+                      }
+                      
                       @Override
                       public void exec() {
                         opPushW(sreg[sregDS]);
                         cycl += 10;
                       }
                     });
+                    
                     op.exec();
                     break;
                   case 0x1f: // POP DS
-                    mem.storeOp(addr, op = new Operation(modrm) {
+                    mem.storeOp(addr, op = new Operation(b) {
+                      @Override
+                      protected void init() {
+                      }
+                      
                       @Override
                       public void exec() {
                         sreg[sregDS] = opPopW();
                         cycl += 8;
                       }
                     });
+                    
                     op.exec();
                     break;
                   case 0x26: // ES: prefix
                     insnseg = sregES;
                     cycl += 2;
-                    continue di;
+                    prefix_byte_flag = true;
+                    break;
                   case 0x27: // DAA
-                    mem.storeOp(addr, op = new Operation(modrm) {
+                    mem.storeOp(addr, op = new Operation(b) {
+                      @Override
+                      protected void init() {
+                      }
+                      
                       @Override
                       public void exec() {
                         opDAA();
                       }
                     });
+                    
                     op.exec();
                     break;
                   case 0x2e: // CS: prefix
                     insnseg = sregCS;
                     cycl += 2;
-                    continue di;
+                    prefix_byte_flag = true;
+                    break;
                   case 0x2f: // DAS
-                    mem.storeOp(addr, op = new Operation(modrm) {
+                    mem.storeOp(addr, op = new Operation(b) {
+                      @Override
+                      protected void init() {
+                      }
+                      
                       @Override
                       public void exec() {
                         opDAS();
                       }
                     });
+                    
                     op.exec();
                     break;
                   case 0x36: // SS: prefix */
                     insnseg = sregSS;
                     cycl += 2;
-                    continue di;
+                    prefix_byte_flag = true;
+                    break;
                   case 0x37: // AAA
-                    mem.storeOp(addr, op = new Operation(modrm) {
+                    mem.storeOp(addr, op = new Operation(b) {
+                      @Override
+                      protected void init() {
+                      }
+                      
                       @Override
                       public void exec() {
                         opAAA();
                       }
                     });
+                    
                     op.exec();
                     break;
                   case 0x3e: // DS: prefix
                     insnseg = sregDS;
                     cycl += 2;
-                    continue di;
+                    prefix_byte_flag = true;
+                    break;
                   case 0x3f: // AAS
-                    mem.storeOp(addr, op = new Operation(modrm) {
+                    mem.storeOp(addr, op = new Operation(b) {
+                      @Override
+                      protected void init() {
+                      }
+                      
                       @Override
                       public void exec() {
                         opAAS();
                       }
                     });
+                    
                     op.exec();
                     break;
                   case 0x80: // Grp1 Eb,Ib
-                    mem.storeOp(addr, op = new Operation(modrm) {
+                    mem.storeOp(addr, op = new Operation(b, modrm) {
+                      @Override
+                      protected void init() {
+                      }
+                      
                       @Override
                       public void exec() {
                         decodeModRm(modrm);
                         doGrp1B(getImmByte());
                       }
                     });
+                    
                     op.exec();
                     break;
                   case 0x81: // Grp1 Ev,Iv
-                    mem.storeOp(addr, op = new Operation(modrm) {
+                    mem.storeOp(addr, op = new Operation(b, modrm) {
+                      @Override
+                      protected void init() {
+                      }
+                      
                       @Override
                       public void exec() {
                         decodeModRm(modrm);
                         doGrp1W(getImmWord());
                       }
                     });
+                    
                     op.exec();
                     break;
                   case 0x82: // Grp1 Eb,Ib
-                    mem.storeOp(addr, op = new Operation(modrm) {
+                    mem.storeOp(addr, op = new Operation(b, modrm) {
+                      @Override
+                      protected void init() {
+                      }
+                      
                       @Override
                       public void exec() {
                         decodeModRm(modrm);
                         doGrp1B(getImmByte());
                       }
                     });
+                    
                     op.exec();
                     break;
                   case 0x83: // Grp1 Ev,SignExtend(Ib)
-                    mem.storeOp(addr, op = new Operation(modrm) {
+                    mem.storeOp(addr, op = new Operation(b, modrm) {
+                      @Override
+                      protected void init() {
+                      }
+                      
                       @Override
                       public void exec() {
                         decodeModRm(modrm);
                         doGrp1W(((byte)getImmByte()) & 0xffff);
                       }
                     });
+                    
                     op.exec();
                     break;
                   case 0x84: // TEST Eb,Gb
-                    mem.storeOp(addr, op = new Operation(modrm) {
+                    mem.storeOp(addr, op = new Operation(b, modrm) {
+                      @Override
+                      protected void init() {
+                      }
+                      
                       @Override
                       public void exec() {
                         decodeModRm(modrm);
@@ -937,10 +1192,15 @@ di:     while (true) { // Restart here after decoding a prefix byte
                         cycl += 6;
                       }
                     });
+                    
                     op.exec();
                     break;
                   case 0x85: // TEST Ev,Gv
-                    mem.storeOp(addr, op = new Operation(modrm) {
+                    mem.storeOp(addr, op = new Operation(b, modrm) {
+                      @Override
+                      protected void init() {
+                      }
+                      
                       @Override
                       public void exec() {
                         decodeModRm(modrm);
@@ -948,138 +1208,409 @@ di:     while (true) { // Restart here after decoding a prefix byte
                         cycl += 6;
                       }
                     });
+                    
                     op.exec();
                     break;
                   case 0x86: // XCHG
-                    mem.storeOp(addr, op = new Operation(modrm) {
+                    mem.storeOp(addr, op = new Operation(b, modrm) {
+                      @Override
+                      protected void init() {
+                      }
+                      
                       @Override
                       public void exec() {
-                        opXchgB(modrm);
+                        opXchgB(this);
                       }
                     });
+                    
                     op.exec();
                     break;
                   case 0x87: // XCHG
-                    mem.storeOp(addr, op = new Operation(modrm) {
+                    mem.storeOp(addr, op = new Operation(b, modrm) {
+                      @Override
+                      protected void init() {
+                      }
+                      
                       @Override
                       public void exec() {
-                        opXchgW(modrm);
+                        opXchgW(this);
                       }
                     });
+                    
                     op.exec();
                     break;
                   case 0x88: // MOV Eb,Gb
-//                    mem.storeOp(addr, op = new Operation(modrm) {
-//                      @Override
-//                      public void exec() {
-//                        decodeModRm(modrm);
-//                        storeByte(getRegByte(insnreg));
-//                        cycl += 2;
-//                      }
-//                    });
-//                    op.exec();
+                    mem.storeOp(addr, op = new Operation(b, modrm) {
+                      @Override
+                      protected void init() {
+                      }
+                      
+                      @Override
+                      public void exec() {
+                        decodeModRm(modrm);
+                        storeByte(getRegByte(insnreg));
+                        cycl += 2;
+                      }
+                    });
                     
-                    decodeModRm(modrm);
-                    storeByte(getRegByte(insnreg));
-                    cycl += 2;
+                    op.exec();
                     break;
                   case 0x89: // MOV Ev,Gv
-                    decodeModRm(modrm);
-                    storeWord(reg[insnreg]);
-                    cycl += 2;
+                    mem.storeOp(addr, op = new Operation(b, modrm) {
+                      @Override
+                      protected void init() {
+                      }
+                      
+                      @Override
+                      public void exec() {
+                        decodeModRm(modrm);
+                        storeWord(reg[insnreg]);
+                        cycl += 2;
+                      }
+                    });
+                    
+                    op.exec();
                     break;
                   case 0x8a: // MOV Gb,Eb
-                    decodeModRm(modrm);
-                    putRegByte(insnreg, loadByte());
-                    cycl += 2;
+                    mem.storeOp(addr, op = new Operation(b, modrm) {
+                      @Override
+                      protected void init() {
+                      }
+                      
+                      @Override
+                      public void exec() {
+                        decodeModRm(modrm);
+                        putRegByte(insnreg, loadByte());
+                        cycl += 2;
+                      }
+                    });
+                    
+                    op.exec();
                     break;
                   case 0x8b: // MOV Gv,Ev
-                    decodeModRm(modrm);
-                    reg[insnreg] = loadWord();
-                    cycl += 2;
+                    mem.storeOp(addr, op = new Operation(b, modrm) {
+                      @Override
+                      protected void init() {
+                      }
+                      
+                      @Override
+                      public void exec() {
+                        decodeModRm(modrm);
+                        reg[insnreg] = loadWord();
+                        cycl += 2;
+                      }
+                    });
+                    
+                    op.exec();
                     break;
                   case 0x8c: // MOV Ew,Sw
-                    decodeModRm(modrm);
-                    storeWord(sreg[insnreg&3]);
-                    cycl += 2;
+                    mem.storeOp(addr, op = new Operation(b, modrm) {
+                      @Override
+                      protected void init() {
+                      }
+                      
+                      @Override
+                      public void exec() {
+                        decodeModRm(modrm);
+                        storeWord(sreg[insnreg&3]);
+                        cycl += 2;
+                      }
+                    });
+                    
+                    op.exec();
                     break;
                   case 0x8d: // LEA
-                    opLea(modrm);
+                    mem.storeOp(addr, op = new Operation(b, modrm) {
+                      @Override
+                      protected void init() {
+                      }
+                      
+                      @Override
+                      public void exec() {
+                        opLea(this);
+                      }
+                    });
+                    
+                    op.exec();
                     break;
                   case 0x8e: // MOV Sw,Ew
-                    decodeModRm(modrm);
+                    decodeModRm();
                     sreg[insnreg&3] = loadWord();
                     cycl += 2;
                     if ((insnreg & 3) == sregCS)
                         csbase = sreg[sregCS] << 4;
                     if ((insnreg & 3) == sregSS) {
                         insnprf = insnseg = -1;
-                        continue di; // block interrupts after loading SS
+                        // block interrupts after loading SS
+                        prefix_byte_flag = true;
                     }
                     break;
                   case 0x8f: // POP Ev
-                    decodeModRm(modrm);
-                    storeWord(opPopW());
-                    cycl += 8;
+                    mem.storeOp(addr, op = new Operation(b, modrm) {
+                      @Override
+                      protected void init() {
+                      }
+                      
+                      @Override
+                      public void exec() {
+                        decodeModRm(modrm);
+                        storeWord(opPopW());
+                        cycl += 8;
+                      }
+                    });
+                    
+                    op.exec();
                     break;
                   case 0x90: case 0x91: case 0x92: case 0x93: // XCHG AX,Gv
                   case 0x94: case 0x95: case 0x96: case 0x97: // XCHG AX,Gv
-                    opXchgAX(b&7);
+                    mem.storeOp(addr, op = new Operation(b, modrm) {
+                      @Override
+                      protected void init() {
+                        v = b&7;
+                      }
+                      
+                      @Override
+                      public void exec() {
+                        opXchgAX(v/*b&7*/);
+                      }
+                    });
+                    
+                    op.exec();
                     break;
                   case 0x98: // CBW
-                    reg[regAX] = ((byte)reg[regAX]) & 0xffff;
-                    cycl += 2;
+                    mem.storeOp(addr, op = new Operation(b, modrm) {
+                      @Override
+                      protected void init() {
+                      }
+                      
+                      @Override
+                      public void exec() {
+                        reg[regAX] = ((byte)reg[regAX]) & 0xffff;
+                        cycl += 2;
+                      }
+                    });
+                    
+                    op.exec();
                     break;
                   case 0x99: // CWD
-                    reg[regDX] = ( - (reg[regAX] >> 15) ) & 0xffff;
-                    cycl += 5;
+                    mem.storeOp(addr, op = new Operation(b, modrm) {
+                      @Override
+                      protected void init() {
+                      }
+                      
+                      @Override
+                      public void exec() {
+                        reg[regDX] = ( - (reg[regAX] >> 15) ) & 0xffff;
+                        cycl += 5;
+                      }
+                    });
+                    
+                    op.exec();
                     break;
                   case 0x9a: // CALL
-                    opCallFar();
+                    mem.storeOp(addr, op = new Operation(b, modrm) {
+                      @Override
+                      protected void init() {
+                      }
+                      
+                      @Override
+                      public void exec() {
+                        opCallFar();
+                      }
+                    });
+                    
+                    op.exec();
                     break;
                   case 0x9b: // WAIT
-                    cycl += 4;
+                    mem.storeOp(addr, op = new Operation(b, modrm) {
+                      @Override
+                      protected void init() {
+                      }
+                      
+                      @Override
+                      public void exec() {
+                        cycl += 4;
+                      }
+                    });
+                    
+                    op.exec();
                     break;
                   case 0x9c: // PUSHF
-                    opPushW(flags);
-                    cycl += 10;
+                    mem.storeOp(addr, op = new Operation(b, modrm) {
+                      @Override
+                      protected void init() {
+                      }
+                      
+                      @Override
+                      public void exec() {
+                        opPushW(flags);
+                        cycl += 10;
+                      }
+                    });
+                    
+                    op.exec();
                     break;
                   case 0x9d: // POPF
-                    // A real 8086 does not trap the instruction immediately
-                    // after the POPF that enabled TF, so we do the same thing
-                    // (although modern processors do trap the first insn).
-                    trapSkipFirst = ((flags & flTF) == 0);
-                    flags = (opPopW() & flANDMASK) | flORMASK;
-                    cycl += 8;
+                    mem.storeOp(addr, op = new Operation(b, modrm) {
+                      @Override
+                      protected void init() {
+                      }
+                      
+                      @Override
+                      public void exec() {
+                        // A real 8086 does not trap the instruction immediately
+                        // after the POPF that enabled TF, so we do the same thing
+                        // (although modern processors do trap the first insn).
+                        trapSkipFirst = ((flags & flTF) == 0);
+                        flags = (opPopW() & flANDMASK) | flORMASK;
+                        cycl += 8;
+                      }
+                    });
+                    
+                    op.exec();
                     break;
                   case 0x9e: // SAHF
-                    flags = ((reg[regAX] >> 8) & 0x00ff & flANDMASK) |
-                            (flags & 0xff00) | flORMASK;
-                    cycl += 4;
+                    mem.storeOp(addr, op = new Operation(b) {
+                      @Override
+                      protected void init() {
+                      }
+                      
+                      @Override
+                      public void exec() {
+                        flags = ((reg[regAX] >> 8) & 0x00ff & flANDMASK) |
+                                (flags & 0xff00) | flORMASK;
+                        cycl += 4;
+                      }
+                    });
+                    
+                    op.exec();
                     break;
                   case 0x9f: // LAHF
-                    putRegByte(regAX|4, flags & 0xff);
-                    cycl += 4;
+                    mem.storeOp(addr, op = new Operation(b) {
+                      @Override
+                      protected void init() {
+                      }
+                      
+                      @Override
+                      public void exec() {
+                        putRegByte(regAX|4, flags & 0xff);
+                        cycl += 4;
+                      }
+                    });
+                    
+                    op.exec();
                     break;
-                  case 0xa0: /* MOV  */ opMovBAccMem(); break;
-                  case 0xa1: /* MOV  */ opMovWAccMem(); break;
-                  case 0xa2: /* MOV  */ opMovBMemAcc(); break;
-                  case 0xa3: /* MOV  */ opMovWMemAcc(); break;
+                  case 0xa0: /* MOV  */
+                    mem.storeOp(addr, op = new Operation(b) {
+                      @Override
+                      protected void init() {
+                      }
+                      
+                      @Override
+                      public void exec() {
+                        opMovBAccMem();
+                      }
+                    });
+                    
+                    op.exec(); 
+                    break;
+                  case 0xa1: /* MOV  */
+                    mem.storeOp(addr, op = new Operation(b) {
+                      @Override
+                      protected void init() {
+                      }
+                      
+                      @Override
+                      public void exec() {
+                        opMovWAccMem();
+                      }
+                    });
+                    
+                    op.exec(); 
+                    break;
+                  case 0xa2: /* MOV  */
+                    mem.storeOp(addr, op = new Operation(b) {
+                      @Override
+                      protected void init() {
+                      }
+                      
+                      @Override
+                      public void exec() { 
+                        opMovBMemAcc();
+                      }
+                    });
+                    
+                    op.exec();
+                    break;
+                  case 0xa3: /* MOV  */
+                    mem.storeOp(addr, op = new Operation(b) {
+                      @Override
+                      protected void init() {
+                      }
+                      
+                      @Override
+                      public void exec() { 
+                        opMovWMemAcc();
+                      }
+                    });
+                    
+                    op.exec();  
+                    break;
                   case 0xa4: // MOVSB
                   case 0xa5: // MOVSW
                   case 0xa6: // CMPSB
                   case 0xa7: // CMPSW
-                    doString(b);
+                    mem.storeOp(addr, op = new Operation(b) {
+                      @Override
+                      protected void init() {
+                      }
+                      
+                      @Override
+                      public void exec() { 
+                        doString(b);
+                      }
+                    });
+                    
+                    op.exec(); 
                     break;
                   case 0xa8: // TEST AL,Ib
-                    insnaddr = regAX | 0x10000;
-                    aluTestB(getImmByte());
-                    cycl += 4;
+                    mem.storeOp(addr, op = new Operation(b) {
+                      @Override
+                      protected void init() {
+                        v = regAX | 0x10000;
+                        v1 = mem.loadByte(csbase + nextip);
+                      }
+                      
+                      @Override
+                      public void exec() { 
+                        insnaddr = v; // regAX | 0x10000;
+                        ++nextip;
+                        aluTestB(v1/*getImmByte()*/);
+                        cycl += 4;
+                      }
+                    });
+                    
+                    op.exec(); 
                     break;
                   case 0xa9: // TEST AX,Iv
-                    insnaddr = regAX | 0x10000;
-                    aluTestW(getImmWord());
-                    cycl += 4;
+                    mem.storeOp(addr, op = new Operation(b) {
+                      @Override
+                      protected void init() {
+                        v = regAX | 0x10000;
+                        v1 = mem.loadWord(csbase + nextip);
+                      }
+                      
+                      @Override
+                      public void exec() { 
+                        insnaddr = v; // regAX | 0x10000;
+                        ++nextip;
+                        ++nextip;
+                        aluTestW(v1/*getImmWord()*/);
+                        cycl += 4;
+                      }
+                    });
+                    
+                    op.exec(); 
                     break;
                   case 0xaa: // STOSB
                   case 0xab: // STOSW
@@ -1091,15 +1622,15 @@ di:     while (true) { // Restart here after decoding a prefix byte
                     break;
                   case 0xc2: /* RET  */ opRetNear(getImmWord()); break;
                   case 0xc3: /* RET  */ opRetNear(0); break;
-                  case 0xc4: /* LES  */ opLoadPtr(modrm, sregES); break;
-                  case 0xc5: /* LDS  */ opLoadPtr(modrm, sregDS); break;
+                  case 0xc4: /* LES  */ opLoadPtr(sregES); break;
+                  case 0xc5: /* LDS  */ opLoadPtr(sregDS); break;
                   case 0xc6: // MOV Eb,Ib
-                    decodeModRm(modrm);
+                    decodeModRm();
                     storeByte(getImmByte());
                     cycl += 3;
                     break;
                   case 0xc7: // MOV Ev,Iv
-                    decodeModRm(modrm);
+                    decodeModRm();
                     storeWord(getImmWord());
                     cycl += 3;
                     break;
@@ -1113,10 +1644,10 @@ di:     while (true) { // Restart here after decoding a prefix byte
                     cycl += 4;
                     break;
                   case 0xcf: /* IRET */ opIret(); break;
-                  case 0xd0: /* Grp2 */ doGrp2B(modrm, false); break;
-                  case 0xd1: /* Grp2 */ doGrp2W(modrm, false); break;
-                  case 0xd2: /* Grp2 */ doGrp2B(modrm, true); break;
-                  case 0xd3: /* Grp2 */ doGrp2W(modrm, true); break;
+                  case 0xd0: /* Grp2 */ doGrp2B(false); break;
+                  case 0xd1: /* Grp2 */ doGrp2W(false); break;
+                  case 0xd2: /* Grp2 */ doGrp2B(true); break;
+                  case 0xd3: /* Grp2 */ doGrp2W(true); break;
                   case 0xd4: /* AAM  */ opAAM(); break;
                   case 0xd5: /* AAD  */ opAAD(); break;
                   case 0xd6: // SALC
@@ -1126,7 +1657,7 @@ di:     while (true) { // Restart here after decoding a prefix byte
                   case 0xd7: /* XLAT */ opXlatB(); break;
                   case 0xd8: case 0xd9: case 0xda: case 0xdb: // ESC r/m
                   case 0xdc: case 0xdd: case 0xde: case 0xdf: // ESC r/m
-                    decodeModRm(modrm);
+                    decodeModRm();
                     // ignore coprocessor instruction
                     cycl += 2;
                     break;
@@ -1178,9 +1709,15 @@ di:     while (true) { // Restart here after decoding a prefix byte
                     io.outw(reg[regAX], reg[regDX]);
                     cycl += 8;
                     break;
-                  case 0xf0: /* LOCK */ cycl += 2; continue di;
-                  case 0xf2: /* REPNZ*/ insnprf = b; cycl += 2; continue di;
-                  case 0xf3: /* REP  */ insnprf = b; cycl += 2; continue di;
+                  case 0xf0: /* LOCK */ cycl += 2; 
+                    prefix_byte_flag = true;
+                    break;
+                  case 0xf2: /* REPNZ*/ insnprf = b; cycl += 2; 
+                    prefix_byte_flag = true;
+                    break;
+                  case 0xf3: /* REP  */ insnprf = b; cycl += 2; 
+                    prefix_byte_flag = true;
+                    break;
                   case 0xf4: /* HLT  */
                     halted = true;
                     reschedule = true;
@@ -1190,77 +1727,35 @@ di:     while (true) { // Restart here after decoding a prefix byte
                     trapEnabled = false;
                     break;
                   case 0xf5: /* CMC  */ flags ^= flCF; cycl += 2; break;
-                  case 0xf6: /* Grp3 */ doGrp3B(modrm); break;
-                  case 0xf7: /* Grp3 */ doGrp3W(modrm); break;
+                  case 0xf6: /* Grp3 */ doGrp3B(); break;
+                  case 0xf7: /* Grp3 */ doGrp3W(); break;
                   case 0xf8: /* CLC  */ flags &= ~ flCF; cycl += 2; break;
                   case 0xf9: /* STC  */ flags |= flCF;   cycl += 2; break;
                   case 0xfa: /* CLI  */
-                    mem.storeOp(addr, op = new Operation() {
-                      @Override
-                      public void exec() {
-                        // CLI disabled interrupts immediately
-                        flags &= ~ flIF;
-                        intsEnabled = false;
-                        cycl += 2;
-                      }
-                    });
-                    op.exec();
+                    // CLI disabled interrupts immediately
+                    flags &= ~ flIF;
+                    intsEnabled = false;
+                    cycl += 2;
                     break;
                   case 0xfb: /* STI  */
-                    mem.storeOp(addr, op = new Operation() {
-                      @Override
-                      public void exec() {
-                        // STI enables interrupts after the next instruction
-                        flags |= flIF;
-                        cycl += 2;
-                      }
-                    });
-                    op.exec();
+                    // STI enables interrupts after the next instruction
+                    flags |= flIF;
+                    cycl += 2;
                     break;
-                  case 0xfc: /* CLD  */
-                    mem.storeOp(addr, op = new Operation() {
-                      @Override
-                      public void exec() { 
-                        flags &= ~ flDF; 
-                        cycl += 2;
-                      }
-                    });
-                    op.exec();
-                    break;
-                  case 0xfd: /* STD  */
-                    mem.storeOp(addr, op = new Operation() {
-                      @Override
-                      public void exec() { 
-                        flags |= flDF;
-                        cycl += 2;
-                      }
-                    });
-                    op.exec();
-                    break;
-                  case 0xfe: /* Grp4 */
-                    mem.storeOp(addr, op = new Operation(modrm) {
-                      @Override
-                      public void exec() { 
-                        try {
-                          doGrp4(modrm);
-                        } catch (InvalidOpcodeException e) {
-                          throw new RuntimeException(e);
-                        } 
-                      }
-                    });
-                    op.exec();
-                    break;
-                  case 0xff: /* Grp5 */
-                    doGrp5(modrm); 
-                    break;
+                  case 0xfc: /* CLD  */ flags &= ~ flDF; cycl += 2; break;
+                  case 0xfd: /* STD  */ flags |= flDF;   cycl += 2; break;
+                  case 0xfe: /* Grp4 */ doGrp4(); break;
+                  case 0xff: /* Grp5 */ doGrp5(); break;
                   default:
-                    throw new InvalidOpcodeException("Undefined opcode: 0x" + Integer.toHexString(b));
+                    throw new InvalidOpcodeException("Undefined opcode");
                 }
 
             }
 
-            break; // done with the current instruction
-        }
+            if (!prefix_byte_flag)
+              break; // done with the current instruction (breaks while)
+
+        } // while(true)
 
         // Check for instruction crossing segment boundary
         if ((nextip & 0xffff0000) != 0)
@@ -1307,14 +1802,14 @@ di:     while (true) { // Restart here after decoding a prefix byte
     }
 
     // Group 2 (shift/rotate) on byte
-    private final void doGrp2B(int modrm, boolean usecl) {
+    private final void doGrp2B(boolean usecl) {
         int x, y, count = 1;
         cycl += 2;
         if (usecl) {
             count = reg[regCX] & 0xff;
             cycl += 5 + 4 * count;
         }
-        decodeModRm(modrm);
+        decodeModRm();
         x = loadByte();
         if (count == 0)
             return;
@@ -1390,14 +1885,14 @@ di:     while (true) { // Restart here after decoding a prefix byte
     }
 
     // Group 2 (shift/rotate) on word
-    private final void doGrp2W(int modrm, boolean usecl) {
+    private final void doGrp2W(boolean usecl) {
         int x, y, count = 1;
         cycl += 2;
         if (usecl) {
             count = reg[regCX] & 0xff;
             cycl += 5 + 4 * count;
         }
-        decodeModRm(modrm);
+        decodeModRm();
         x = loadWord();
         if (count == 0)
             return;
@@ -1484,8 +1979,8 @@ di:     while (true) { // Restart here after decoding a prefix byte
     }
 
     // Group 3 (unary arithmetic / immediate test) on byte
-    private final void doGrp3B(int modrm) throws InvalidOpcodeException {
-        decodeModRm(modrm);
+    private final void doGrp3B() throws InvalidOpcodeException {
+        decodeModRm();
         switch (insnreg) {
           case 0: aluTestB(getImmByte()); cycl += 5; break;
           case 1: throw new InvalidOpcodeException("Undefined opcode");
@@ -1509,8 +2004,8 @@ di:     while (true) { // Restart here after decoding a prefix byte
     }
 
     // Group 3 (unary arithmetic / immediate test) on word
-    private final void doGrp3W(int modrm) throws InvalidOpcodeException {
-        decodeModRm(modrm);
+    private final void doGrp3W() throws InvalidOpcodeException {
+        decodeModRm();
         switch (insnreg) {
           case 0: aluTestW(getImmWord()); cycl += 5; break;
           case 1: throw new InvalidOpcodeException("Undefined opcode");
@@ -1534,8 +2029,8 @@ di:     while (true) { // Restart here after decoding a prefix byte
     }
 
     // Group 4 (increment/decrement on byte)
-    private final void doGrp4(int modrm) throws InvalidOpcodeException {
-        decodeModRm(modrm);
+    private final void doGrp4() throws InvalidOpcodeException {
+        decodeModRm();
         switch (insnreg) {
           case 0: opIncB(); break;
           case 1: opDecB(); break;
@@ -1544,8 +2039,8 @@ di:     while (true) { // Restart here after decoding a prefix byte
     }
 
     // Group 5 (misc)
-    private final void doGrp5(int modrm) throws InvalidOpcodeException {
-        decodeModRm(modrm);
+    private final void doGrp5() throws InvalidOpcodeException {
+        decodeModRm();
         switch (insnreg) {
           case 0: opIncW(); break;
           case 1: opDecW(); break;
@@ -2180,8 +2675,8 @@ di:     while (true) { // Restart here after decoding a prefix byte
     }
 
     // LEA Gv,M
-    private final void opLea(int modrm) throws InvalidOpcodeException {
-        decodeModRm(modrm);
+    private final void opLea(Operation op) throws InvalidOpcodeException {
+        decodeModRm(op.modrm);
         if ((insnaddr & 0x10000) != 0)
             throw new InvalidOpcodeException("Register operand not allowed");
         reg[insnreg] = insnaddr;
@@ -2189,8 +2684,8 @@ di:     while (true) { // Restart here after decoding a prefix byte
     }
 
     // LxS Gv,Mp
-    private final void opLoadPtr(int modrm, int s) throws InvalidOpcodeException {
-        decodeModRm(modrm);
+    private final void opLoadPtr(int s) throws InvalidOpcodeException {
+        decodeModRm();
         if ((insnaddr & 0x10000) != 0)
             throw new InvalidOpcodeException("Register operand not allowed");
         int b = sreg[insnseg] << 4;
@@ -2291,8 +2786,8 @@ di:     while (true) { // Restart here after decoding a prefix byte
     }
 
     // XCHG Eb,Gb
-    private final void opXchgB(int modrm) {
-        decodeModRm(modrm);
+    private final void opXchgB(Operation op) {
+        decodeModRm(op.modrm);
         int t = getRegByte(insnreg);
         putRegByte(insnreg, loadByte());
         storeByte(t);
@@ -2300,8 +2795,8 @@ di:     while (true) { // Restart here after decoding a prefix byte
     }
 
     // XCHG Ev,Gv
-    private final void opXchgW(int modrm) {
-        decodeModRm(modrm);
+    private final void opXchgW(Operation op) {
+        decodeModRm(op.modrm);
         int t = reg[insnreg];
         reg[insnreg] = loadWord();
         storeWord(t);

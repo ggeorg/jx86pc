@@ -434,8 +434,6 @@ public class Retro
     public void runvm() {
         try {
             sched.run();
-        } catch (RuntimeException e) {
-          e.printStackTrace();
         } catch (Cpu.InvalidOpcodeException e) {
             e.printStackTrace();
         }
