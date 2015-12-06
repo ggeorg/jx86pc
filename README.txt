@@ -1,6 +1,4 @@
-Java x86 PC emulator is a fork of *Retro a PC/XT emulator* (http://www.xs4all.nl/~rjoris/retro/).
-
-The purpose of this fork is testing ideas for building VMs and emulators.
+A Retro a PC/XT emulator (http://www.xs4all.nl/~rjoris/retro/) fork for testing new ideas/algorithms for building VMs and emulators.
 
 Features
 --------
