@@ -1,4 +1,4 @@
-A fork of "Retro PC/XT emulator" (http://www.xs4all.nl/~rjoris/retro/). The primary reason of this fork is for testing new ideas and algorithms used in VMs.
+A fork of "Retro PC/XT Emulator" (http://www.xs4all.nl/~rjoris/retro/). The primary reason of this fork is for testing new ideas and algorithms used in VMs.
 
 Features
 --------
