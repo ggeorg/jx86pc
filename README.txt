@@ -1,12 +1,4 @@
----------------------------
-  Retro: a PC/XT emulator
----------------------------
-
-Version 0.4, 2007-12-31
-
-Retro is a PC/XT emulator written in Java.  It can boot DOS, Minix and
-Windows 2.0, and it runs many applications and games from the CGA era.
-
+Java x86 PC emulator is a fork of [Retro: a PC/XT emulator](http://www.xs4all.nl/~rjoris/retro/)
 
 Features
 --------
@@ -71,45 +63,3 @@ Or build a JAR file:
 
 The makefile uses Jikes to compile Java code, but this can easily be
 changed. NASM is needed to assemble the BIOS code.
-
-
-Website
--------
-
-More information is available on the project website:
-  http://www.xs4all.nl/~rjoris/retro/
-
-
-Version history
----------------
-
-Version 0.4, 2007-12-31
- * Floppy: hardware-level emulation of floppy controller
- * DMA: bugfixes
- * Interrupt controller: bugfix in priority-based masking
- * Timer: bugfix in changes to the count register
- * Fix S2 configuration switches
- * Retro can now run Minix
- * Retro can now boot with the original PC/XT ROM BIOS image
-
-Version 0.3, 2007-09-30
- * Floppy: error reporting for unsupported image file size
- * Floppy: add support for 2880 kB floppy images
- * Floppy: fix bug in int13/ah=08 (get drive parameters)
- * CGA/BIOS: fix wrong pixel colors in 320x200 mode
- * DMA controller: implement I8237 and fake memory refresh
- * CPU: better 8086 compatibility of trap flag
- * BIOS: move stack to 0030:0100 before executing boot sector
- * Retro can now run ELKS (http://elks.sourceforge.net/)
-
-Version 0.2, 2007-07-29
- * Clean logging infrastructure.
- * Keyboard: improved simulation; support for 101-key extended keyboard.
- * Keyboard controller: fix system status bits and interaction with timer.
- * CPU: bugfix, improved 8086 compatibility
- * CGA: fix a ColorModel issue with graphics modes on Win98
-
-Version 0.1, 2006-12-24
- * Initial release.
-
---
