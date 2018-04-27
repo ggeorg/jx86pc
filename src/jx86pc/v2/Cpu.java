@@ -5,8 +5,6 @@
 
 package jx86pc.v2;
 
-import jx86pc.v1.Operation;
-
 /**
  * Emulation of a 8086/8088 CPU.
  */
@@ -335,10 +333,6 @@ public class Cpu {
 
     // Fetch and decode the ModRM byte and compute effective address
     private final void decodeModRm() {
-	decodeModRm(modrm);
-    }
-
-    private final void decodeModRm(int modrm) {
 	nextip++;
 	int mod = modrm & 0xc0;
 	int rm = modrm & 0x07;
@@ -674,7 +668,7 @@ public class Cpu {
 	    Instruction instruction = instructions[b];
 	    if (instruction != null) {
 		//System.out.println(String.format(">>> 0x%2x", b));
-		prefix_byte_flag = instruction.exec(b, modrm);
+		prefix_byte_flag = instruction.exec(b);
 	    } else if (b < 0x40 && (b & 0x07) < 6) {
 
 		// General ALU operations
@@ -1831,7 +1825,7 @@ public class Cpu {
 	// PUSH ES
 	instructions[0x06] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		opPushW(sreg[sregES]);
 		cycl += 10;
 		return false;
@@ -1841,7 +1835,7 @@ public class Cpu {
 	// POP ES
 	instructions[0x07] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		sreg[sregES] = opPopW();
 		cycl += 8;
 		insnprf = insnseg = -1;
@@ -1852,7 +1846,7 @@ public class Cpu {
 	// PUSH CS
 	instructions[0x0e] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		opPushW(sreg[sregCS]);
 		cycl += 10;
 		return false;
@@ -1862,7 +1856,7 @@ public class Cpu {
 	// PUSH SS
 	instructions[0x16] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		opPushW(sreg[sregSS]);
 		cycl += 10;
 		return false;
@@ -1872,7 +1866,7 @@ public class Cpu {
 	// POP SS
 	instructions[0x17] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		sreg[sregSS] = opPopW();
 		cycl += 8;
 		insnprf = insnseg = -1;
@@ -1884,7 +1878,7 @@ public class Cpu {
 	// PUSH DS
 	instructions[0x1e] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		opPushW(sreg[sregDS]);
 		cycl += 10;
 		return false;
@@ -1894,7 +1888,7 @@ public class Cpu {
 	// POP DS
 	instructions[0x1f] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
                 sreg[sregDS] = opPopW();
                 cycl += 8;
 		return false;
@@ -1904,7 +1898,7 @@ public class Cpu {
 	// ES: prefix
 	instructions[0x26] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
                 insnseg = sregES;
                 cycl += 2;
 		return true;
@@ -1914,7 +1908,7 @@ public class Cpu {
 	// DAA
 	instructions[0x27] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		int a = reg[regAX] & 0x00ff;
 		int x = a;
 		if ((a > 0x9f) || (a > 0x99 && (flags & flAF) == 0) || ((flags & flCF) != 0)) {
@@ -1941,7 +1935,7 @@ public class Cpu {
 	// CS: prefix
 	instructions[0x2e] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
                 insnseg = sregCS;
                 cycl += 2;
 		return true;
@@ -1951,7 +1945,7 @@ public class Cpu {
 	// DAS
 	instructions[0x2f] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		int a = reg[regAX] & 0x00ff;
 		int x = a;
 		if ((a > 0x9f) || (a > 0x99 && (flags & flAF) == 0) || ((flags & flCF) != 0)) {
@@ -1978,7 +1972,7 @@ public class Cpu {
 	// SS: prefix
 	instructions[0x36] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
                 insnseg = sregSS;
                 cycl += 2;
 		return true;
@@ -1988,7 +1982,7 @@ public class Cpu {
 	// AAA
 	instructions[0x37] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		int a = reg[regAX];
 		//int x = a;
 		if (((a & 0x000f) > 9) || ((flags & flAF) != 0)) {
@@ -2007,7 +2001,7 @@ public class Cpu {
 	// DS: prefix
 	instructions[0x3e] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
                 insnseg = sregDS;
                 cycl += 2;
 		return true;
@@ -2017,7 +2011,7 @@ public class Cpu {
 	// AAS
 	instructions[0x3f] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		int a = reg[regAX];
 		//int x = a;
 		if (((a & 0x000f) > 9) || ((flags & flAF) != 0)) {
@@ -2036,8 +2030,8 @@ public class Cpu {
 	// Grp1 Eb,Ib
 	instructions[0x80] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
-                decodeModRm(modrm);
+	    public boolean exec(int opcode) {
+                decodeModRm();
                 doGrp1B(getImmByte());
 		return false;
 	    }
@@ -2046,8 +2040,8 @@ public class Cpu {
 	// Grp1 Ev,Iv
 	instructions[0x81] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
-                decodeModRm(modrm);
+	    public boolean exec(int opcode) {
+                decodeModRm();
                 doGrp1W(getImmWord());
 		return false;
 	    }
@@ -2056,8 +2050,8 @@ public class Cpu {
 	// Grp1 Eb,Ib
 	instructions[0x82] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
-                decodeModRm(modrm);
+	    public boolean exec(int opcode) {
+                decodeModRm();
                 doGrp1B(getImmByte());
 		return false;
 	    }
@@ -2066,8 +2060,8 @@ public class Cpu {
 	// Grp1 Ev,SignExtend(Ib)
 	instructions[0x83] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
-                decodeModRm(modrm);
+	    public boolean exec(int opcode) {
+                decodeModRm();
                 doGrp1W(((byte)getImmByte()) & 0xffff);
 		return false;
 	    }
@@ -2076,8 +2070,8 @@ public class Cpu {
 	// TEST Eb,Gb
 	instructions[0x84] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
-                decodeModRm(modrm);
+	    public boolean exec(int opcode) {
+                decodeModRm();
                 aluTestB(getRegByte(insnreg));
                 cycl += 6;
 		return false;
@@ -2087,8 +2081,8 @@ public class Cpu {
 	// TEST Ev,Gv
 	instructions[0x85] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
-                decodeModRm(modrm);
+	    public boolean exec(int opcode) {
+                decodeModRm();
                 aluTestW(reg[insnreg]);
                 cycl += 6;
 		return false;
@@ -2098,8 +2092,8 @@ public class Cpu {
 	// XCHG
 	instructions[0x86] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
-		decodeModRm(modrm);
+	    public boolean exec(int opcode) {
+		decodeModRm();
 		int t = getRegByte(insnreg);
 		putRegByte(insnreg, loadByte());
 		storeByte(t);
@@ -2111,8 +2105,8 @@ public class Cpu {
 	// XCHG
 	instructions[0x87] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
-		decodeModRm(modrm);
+	    public boolean exec(int opcode) {
+		decodeModRm();
 		int t = reg[insnreg];
 		reg[insnreg] = loadWord();
 		storeWord(t);
@@ -2124,8 +2118,8 @@ public class Cpu {
 	// MOV Eb,Gb
 	instructions[0x88] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
-                decodeModRm(modrm);
+	    public boolean exec(int opcode) {
+                decodeModRm();
                 storeByte(getRegByte(insnreg));
                 cycl += 2;
 		return false;
@@ -2135,8 +2129,8 @@ public class Cpu {
 	// MOV Ev,Gv
 	instructions[0x89] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
-                decodeModRm(modrm);
+	    public boolean exec(int opcode) {
+                decodeModRm();
                 storeWord(reg[insnreg]);
                 cycl += 2;
 		return false;
@@ -2146,8 +2140,8 @@ public class Cpu {
 	// MOV Gb,Eb
 	instructions[0x8a] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
-                decodeModRm(modrm);
+	    public boolean exec(int opcode) {
+                decodeModRm();
                 putRegByte(insnreg, loadByte());
                 cycl += 2;
 		return false;
@@ -2157,8 +2151,8 @@ public class Cpu {
 	// MOV Gv,Ev
 	instructions[0x8b] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
-                decodeModRm(modrm);
+	    public boolean exec(int opcode) {
+                decodeModRm();
                 reg[insnreg] = loadWord();
                 cycl += 2;
 		return false;
@@ -2168,8 +2162,8 @@ public class Cpu {
 	// MOV Ew,Sw
 	instructions[0x8c] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
-                decodeModRm(modrm);
+	    public boolean exec(int opcode) {
+                decodeModRm();
                 storeWord(sreg[insnreg&3]);
                 cycl += 2;
 		return false;
@@ -2179,8 +2173,8 @@ public class Cpu {
 	// LEA
 	instructions[0x8d] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
-		decodeModRm(modrm);
+	    public boolean exec(int opcode) {
+		decodeModRm();
 		if ((insnaddr & 0x10000) != 0)
 		    throw new InvalidOpcodeException("Register operand not allowed");
 		reg[insnreg] = insnaddr;
@@ -2192,8 +2186,8 @@ public class Cpu {
 	// MOV Sw,Ew
 	instructions[0x8e] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
-                decodeModRm(modrm);
+	    public boolean exec(int opcode) {
+                decodeModRm();
                 sreg[insnreg&3] = loadWord();
                 cycl += 2;
                 if ((insnreg & 3) == sregCS)
@@ -2210,8 +2204,8 @@ public class Cpu {
 	// MOV Sw,Ew
 	instructions[0x8f] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
-                decodeModRm(modrm);
+	    public boolean exec(int opcode) {
+                decodeModRm();
                 storeWord(opPopW());
                 cycl += 8;
 		return false;
@@ -2222,7 +2216,7 @@ public class Cpu {
 	instructions[0x90] = instructions[0x91] = instructions[0x92] = instructions[0x93] =
 		instructions[0x94] = instructions[0x95] = instructions[0x96] = instructions[0x97] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
                 int r = opcode&7;
         	int t = reg[regAX];
         	reg[regAX] = reg[r];
@@ -2235,7 +2229,7 @@ public class Cpu {
 	// CBW
 	instructions[0x98] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
                 reg[regAX] = ((byte)reg[regAX]) & 0xffff;
                 cycl += 2;
 		return false;
@@ -2245,7 +2239,7 @@ public class Cpu {
 	// CWD
 	instructions[0x99] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
                 reg[regDX] = ( - (reg[regAX] >> 15) ) & 0xffff;
                 cycl += 5;
 		return false;
@@ -2255,7 +2249,7 @@ public class Cpu {
 	// CALL
 	instructions[0x9a] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		opPushW(sreg[sregCS]);
 		opPushW(nextip + 4);
 		jumpip = getImmWord();
@@ -2269,7 +2263,7 @@ public class Cpu {
 	// WAIT
 	instructions[0x9b] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
                 cycl += 4;
 		return false;
 	    }
@@ -2278,7 +2272,7 @@ public class Cpu {
 	// PUSHF
 	instructions[0x9c] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
                 opPushW(flags);
                 cycl += 10;
 		return false;
@@ -2288,7 +2282,7 @@ public class Cpu {
 	// POPF
 	instructions[0x9d] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
                 // A real 8086 does not trap the instruction immediately
                 // after the POPF that enabled TF, so we do the same thing
                 // (although modern processors do trap the first insn).
@@ -2302,7 +2296,7 @@ public class Cpu {
 	// SAHF
 	instructions[0x9e] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
                 flags = ((reg[regAX] >> 8) & 0x00ff & flANDMASK) |
                         (flags & 0xff00) | flORMASK;
                 cycl += 4;
@@ -2313,7 +2307,7 @@ public class Cpu {
 	// LAHF
 	instructions[0x9f] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
                 putRegByte(regAX|4, flags & 0xff);
                 cycl += 4;
 		return false;
@@ -2323,7 +2317,7 @@ public class Cpu {
 	// MOV
 	instructions[0xa0] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		if (insnseg == -1)
 		    insnseg = sregDS;
 		insnaddr = getImmWord();
@@ -2336,7 +2330,7 @@ public class Cpu {
 	// MOV
 	instructions[0xa1] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		if (insnseg == -1)
 		    insnseg = sregDS;
 		insnaddr = getImmWord();
@@ -2349,7 +2343,7 @@ public class Cpu {
 	// MOV
 	instructions[0xa2] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		if (insnseg == -1)
 		    insnseg = sregDS;
 		insnaddr = getImmWord();
@@ -2362,7 +2356,7 @@ public class Cpu {
 	// MOV
 	instructions[0xa3] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		if (insnseg == -1)
 		    insnseg = sregDS;
 		insnaddr = getImmWord();
@@ -2375,7 +2369,7 @@ public class Cpu {
 	// MOVSB, MOVSW, CMPSB, CMPSW
 	instructions[0xa4] = instructions[0xa5] = instructions[0xa6] = instructions[0xa7] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		doString(opcode);
 		return false;
 	    }
@@ -2384,7 +2378,7 @@ public class Cpu {
 	// TEST AL,Ib
 	instructions[0xa8] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
                 insnaddr = regAX | 0x10000;
                 aluTestB(getImmByte());
                 cycl += 4;
@@ -2395,7 +2389,7 @@ public class Cpu {
 	// TEST AX,Iv
 	instructions[0xa9] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
                 insnaddr = regAX | 0x10000;
                 aluTestW(getImmWord());
                 cycl += 4;
@@ -2407,7 +2401,7 @@ public class Cpu {
 	instructions[0xaa] = instructions[0xab] = instructions[0xac] = 
 		instructions[0xad] = instructions[0xae] = instructions[0xaf] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
                 doString(opcode);
 		return false;
 	    }
@@ -2416,7 +2410,7 @@ public class Cpu {
 	// RET
 	instructions[0xc2] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		int c =  getImmWord();
 		jumpip = opPopW();
 		reg[regSP] = (reg[regSP] + c) & 0xffff;
@@ -2428,7 +2422,7 @@ public class Cpu {
 	// RET
 	instructions[0xc3] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		jumpip = opPopW();
 		reg[regSP] = reg[regSP] & 0xffff;
 		cycl += 16;
@@ -2439,8 +2433,8 @@ public class Cpu {
 	// LES
 	instructions[0xc4] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
-		decodeModRm(modrm);
+	    public boolean exec(int opcode) {
+		decodeModRm();
 		if ((insnaddr & 0x10000) != 0)
 		    throw new InvalidOpcodeException("Register operand not allowed");
 		int b = sreg[insnseg] << 4;
@@ -2454,8 +2448,8 @@ public class Cpu {
 	// LDS
 	instructions[0xc5] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
-		decodeModRm(modrm);
+	    public boolean exec(int opcode) {
+		decodeModRm();
 		if ((insnaddr & 0x10000) != 0)
 		    throw new InvalidOpcodeException("Register operand not allowed");
 		int b = sreg[insnseg] << 4;
@@ -2469,8 +2463,8 @@ public class Cpu {
 	// MOV Eb,Ib
 	instructions[0xc6] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
-                decodeModRm(modrm);
+	    public boolean exec(int opcode) {
+                decodeModRm();
                 storeByte(getImmByte());
                 cycl += 3;
 		return false;
@@ -2480,8 +2474,8 @@ public class Cpu {
 	// MOV Ev,Iv
 	instructions[0xc7] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
-                decodeModRm(modrm);
+	    public boolean exec(int opcode) {
+                decodeModRm();
                 storeWord(getImmWord());
                 cycl += 3;
 		return false;
@@ -2491,7 +2485,7 @@ public class Cpu {
 	// RETF
 	instructions[0xca] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		int c = getImmWord();
 		jumpip = opPopW();
 		sreg[sregCS] = opPopW();
@@ -2505,7 +2499,7 @@ public class Cpu {
 	// RETF
 	instructions[0xcb] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		jumpip = opPopW();
 		sreg[sregCS] = opPopW();
 		csbase = sreg[sregCS] << 4;
@@ -2518,7 +2512,7 @@ public class Cpu {
 	// INT3
 	instructions[0xcc] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		opInt(3);
 		return false;
 	    }
@@ -2527,7 +2521,7 @@ public class Cpu {
 	// INT
 	instructions[0xcd] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		opInt(getImmByte());
 		return false;
 	    }
@@ -2536,7 +2530,7 @@ public class Cpu {
 	// INT0
 	instructions[0xce] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
                 if ((flags & flOF) != 0)
                     opInt(4);
                 cycl += 4;
@@ -2547,7 +2541,7 @@ public class Cpu {
 	// IRET
 	instructions[0xcf] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		jumpip = opPopW();
 		sreg[sregCS] = opPopW();
 		csbase = sreg[sregCS] << 4;
@@ -2560,7 +2554,7 @@ public class Cpu {
 	// Grp2
 	instructions[0xd0] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		doGrp2B(false);
 		return false;
 	    }
@@ -2569,7 +2563,7 @@ public class Cpu {
 	// Grp2
 	instructions[0xd1] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		doGrp2W(false);
 		return false;
 	    }
@@ -2578,7 +2572,7 @@ public class Cpu {
 	// Grp2
 	instructions[0xd2] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		doGrp2B(true);
 		return false;
 	    }
@@ -2587,7 +2581,7 @@ public class Cpu {
 	// Grp2
 	instructions[0xd3] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		doGrp2W(true);
 		return false;
 	    }
@@ -2596,7 +2590,7 @@ public class Cpu {
 	// AAM
 	instructions[0xd4] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		int d = getImmByte();
 		int a = reg[regAX] & 0x00ff;
 		cycl += 83;
@@ -2615,7 +2609,7 @@ public class Cpu {
 	// AAD
 	instructions[0xd5] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		int d = getImmByte();
 		int x = reg[regAX];
 		int v = ((x >> 8) * d) & 0x00ff;
@@ -2630,7 +2624,7 @@ public class Cpu {
 	// SALC
 	instructions[0xd6] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
                 putRegByte(regAX, ((flags&flCF) == 0) ? 0x00 : 0xff);
                 cycl += 4;
 		return false;
@@ -2640,7 +2634,7 @@ public class Cpu {
 	// XLAT
 	instructions[0xd7] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		int a = reg[regAX];
 		if (insnseg == -1)
 		    insnseg = sregDS;
@@ -2656,8 +2650,8 @@ public class Cpu {
 	instructions[0xd8] = instructions[0xd9] = instructions[0xda] = instructions[0xdb] = 
 		instructions[0xdc] = instructions[0xdd] = instructions[0xde] = instructions[0xdf] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
-                decodeModRm(modrm);
+	    public boolean exec(int opcode) {
+                decodeModRm();
                 // ignore coprocessor instruction
                 cycl += 2;
 		return false;
@@ -2667,7 +2661,7 @@ public class Cpu {
 	// LOOPNZ
 	instructions[0xe0] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		boolean cond = (flags & flZF) == 0;
 		int disp = (byte) getImmByte();
 		int c = (reg[regCX] - 1) & 0xffff;
@@ -2684,7 +2678,7 @@ public class Cpu {
 	// LOOPZ
 	instructions[0xe1] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		boolean cond = (flags & flZF) != 0;
 		int disp = (byte) getImmByte();
 		int c = (reg[regCX] - 1) & 0xffff;
@@ -2701,7 +2695,7 @@ public class Cpu {
 	// LOOP
 	instructions[0xe2] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		//___opLoop(true);
 		int disp = (byte) getImmByte();
 		int c = (reg[regCX] - 1) & 0xffff;
@@ -2718,7 +2712,7 @@ public class Cpu {
 	// JCXZ
 	instructions[0xe3] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		int disp = (byte) getImmByte();
 		boolean t = (reg[regCX] == 0);
 		cycl += 6;
@@ -2733,7 +2727,7 @@ public class Cpu {
 	// IN AL,Ib
 	instructions[0xe4] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
                 flushCycles();
                 putRegByte(regAX, io.inb(getImmByte()));
                 cycl += 10;
@@ -2744,7 +2738,7 @@ public class Cpu {
 	// IN AX,Ib
 	instructions[0xe5] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
                 flushCycles();
                 reg[regAX] = io.inw(getImmByte());
                 cycl += 10;
@@ -2755,7 +2749,7 @@ public class Cpu {
 	// OUT AL,Ib
 	instructions[0xe6] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
                 flushCycles();
                 io.outb(reg[regAX] & 0xff, getImmByte());
                 cycl += 10;
@@ -2766,7 +2760,7 @@ public class Cpu {
 	// OUT AX,Ib
 	instructions[0xe7] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
                 flushCycles();
                 io.outw(reg[regAX], getImmByte());
                 cycl += 10;
@@ -2777,7 +2771,7 @@ public class Cpu {
 	// CALL
 	instructions[0xe8] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		int disp = getImmWord();
 		opPushW(nextip);
 		jumpip = (nextip + disp) & 0xffff;
@@ -2789,7 +2783,7 @@ public class Cpu {
 	// JMP
 	instructions[0xe9] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		int disp = getImmWord();
 		jumpip = (nextip + disp) & 0xffff;
 		cycl += 15;
@@ -2800,7 +2794,7 @@ public class Cpu {
 	// JMP
 	instructions[0xea] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		jumpip = getImmWord();
 		sreg[sregCS] = getImmWord();
 		csbase = sreg[sregCS] << 4;
@@ -2812,7 +2806,7 @@ public class Cpu {
 	// JMP
 	instructions[0xeb] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		int disp = (byte)getImmByte();
 		jumpip = (nextip + disp) & 0xffff;
 		cycl += 15;
@@ -2823,7 +2817,7 @@ public class Cpu {
 	// IN AL,DX
 	instructions[0xec] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
                 flushCycles();
                 putRegByte(regAX, io.inb(reg[regDX]));
                 cycl += 8;
@@ -2834,7 +2828,7 @@ public class Cpu {
 	// IN AX,DX
 	instructions[0xed] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
                 flushCycles();
                 reg[regAX] = io.inw(reg[regDX]);
                 cycl += 8;
@@ -2845,7 +2839,7 @@ public class Cpu {
 	// OUT AL,DX
 	instructions[0xee] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
                 flushCycles();
                 io.outb(reg[regAX] & 0xff, reg[regDX]);
                 cycl += 8;
@@ -2856,7 +2850,7 @@ public class Cpu {
 	// OUT AX,DX
 	instructions[0xef] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
                 flushCycles();
                 io.outw(reg[regAX], reg[regDX]);
                 cycl += 8;
@@ -2867,7 +2861,7 @@ public class Cpu {
 	// LOCK
 	instructions[0xf0] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		cycl += 2;
 		return true;
 	    }
@@ -2876,7 +2870,7 @@ public class Cpu {
 	// REPNZ
 	instructions[0xf2] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		insnprf = opcode;
 		cycl += 2;
 		return true;
@@ -2886,7 +2880,7 @@ public class Cpu {
 	// REP
 	instructions[0xf3] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		insnprf = opcode;
 		cycl += 2;
 		return true;
@@ -2896,7 +2890,7 @@ public class Cpu {
 	// HLT
 	instructions[0xf4] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
                 halted = true;
                 reschedule = true;
                 cycl += 2;
@@ -2910,7 +2904,7 @@ public class Cpu {
 	// CMC
 	instructions[0xf5] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		flags ^= flCF;
 		cycl += 2;
 		return false;
@@ -2920,7 +2914,7 @@ public class Cpu {
 	// Grp3
 	instructions[0xf6] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		doGrp3B();
 		return false;
 	    }
@@ -2929,7 +2923,7 @@ public class Cpu {
 	// Grp3
 	instructions[0xf7] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		doGrp3W();
 		return false;
 	    }
@@ -2938,7 +2932,7 @@ public class Cpu {
 	// CLC
 	instructions[0xf8] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		flags &= ~ flCF;
 		cycl += 2;
 		return false;
@@ -2948,7 +2942,7 @@ public class Cpu {
 	// STC
 	instructions[0xf9] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		flags |= flCF;
 		cycl += 2;
 		return false;
@@ -2958,7 +2952,7 @@ public class Cpu {
 	// CLI
 	instructions[0xfa] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
                 // CLI disabled interrupts immediately
                 flags &= ~ flIF;
                 intsEnabled = false;
@@ -2970,7 +2964,7 @@ public class Cpu {
 	// STI
 	instructions[0xfb] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
                 // STI enables interrupts after the next instruction
                 flags |= flIF;
                 cycl += 2;
@@ -2981,7 +2975,7 @@ public class Cpu {
 	// CLD
 	instructions[0xfc] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		flags &= ~ flDF;
                 cycl += 2;
 		return false;
@@ -2991,7 +2985,7 @@ public class Cpu {
 	// STD
 	instructions[0xfd] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		flags |= flDF;
                 cycl += 2;
 		return false;
@@ -3001,7 +2995,7 @@ public class Cpu {
 	// Grp4
 	instructions[0xfe] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		doGrp4();
 		return false;
 	    }
@@ -3010,7 +3004,7 @@ public class Cpu {
 	// Grp5
 	instructions[0xff] = new Instruction() {
 	    @Override
-	    public boolean exec(int opcode, int modrm) {
+	    public boolean exec(int opcode) {
 		doGrp5();
 		return false;
 	    }
