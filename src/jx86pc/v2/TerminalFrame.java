@@ -14,7 +14,7 @@ import java.awt.event.*;
 public class TerminalFrame extends Frame
 {
 
-    protected Logger log = Logger.getLogger("TerminalFrame");
+    protected XLogger log = XLogger.getLogger("TerminalFrame");
 
     private TerminalCanvas display;
     private boolean gotfocus;

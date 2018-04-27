@@ -5,13 +5,19 @@
 
 package jx86pc.v2;
 
+import java.util.logging.Logger;
+
 /**
- * Simulation of an Intel 82C4 Programmable Interval Timer
+ * Simulation of an Intel 8254 Programmable Interval Timer.
+ * <p>
+ * The 8254 provides three independent 16-bit counters, each capable of handling
+ * clock inputs up to 10 MHz. All modes are software programmable.
  */
 public class I8254 implements IOPortHandler
 {
+    private static final Logger logger = Logger.getLogger(I8254.class.getName());
 
-    protected static Logger log = Logger.getLogger("I8254");
+    protected static XLogger log = XLogger.getLogger("I8254");
 
     /** Simulation of one of the three independent counter modules. */
     private final class Counter
@@ -676,12 +682,14 @@ public class I8254 implements IOPortHandler
     }
 
 
-    /** Handles write request from the Cpu */
+    /** 
+     * Handles write request from the CPU.
+     */
     public void outb(int v, int port)
     {
         currentTime = sched.getCurrentTime();
         int c = port & 3;
-        if (c == 3) {
+        if (c == 3) { // counter #3
             // write Control Word
             c = (v >> 6) & 3;
             if (c == 3) {

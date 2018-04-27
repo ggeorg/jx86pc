@@ -15,7 +15,7 @@ import java.io.*;
 public class DiskImage
 {
 
-    protected static Logger log = Logger.getLogger("disk");
+    protected static XLogger log = XLogger.getLogger("disk");
 
     public static final int EOF = -1;
     public static final int EIO = -2;

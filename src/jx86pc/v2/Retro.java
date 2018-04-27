@@ -19,8 +19,8 @@ public class Retro
   implements Cpu.InterruptHook, Cpu.TraceHook, ExternalInputHandler
 {
 
-    protected static Logger log = Logger.getLogger("main");
-    protected static Logger logdisk = Logger.getLogger("disk");
+    protected static XLogger log = XLogger.getLogger("main");
+    protected static XLogger logdisk = XLogger.getLogger("disk");
 
     Scheduler sched;
     Cpu cpu;
@@ -277,7 +277,7 @@ public class Retro
     {
         // Create simulation scheduler
         sched = new Scheduler();
-        Logger.setScheduler(sched);
+        XLogger.setScheduler(sched);
 
         // Create core simulation objects
         io = new IOPorts();
@@ -314,7 +314,7 @@ public class Retro
         });
 
         // Interrupt controller
-        intctl = new I8259(sched);
+        intctl = new I8259();
         io.registerHandler(intctl, 0x20, 2);
         cpu.setInterruptController(intctl);
 
@@ -510,25 +510,25 @@ public class Retro
         // Configure logging system
         if (cfgprops.containsKey("loglevel")) {
             String cfgval = cfgprops.getProperty("loglevel");
-            int level = Logger.getLogLevelByName(cfgval.toUpperCase());
+            int level = XLogger.getLogLevelByName(cfgval.toUpperCase());
             if (level == 0) {
                 log.fatal("Unknown default log level '" + cfgval + "'");
                 System.exit(1);
             } else {
-                Logger.setDefaultLevel(level);
+                XLogger.setDefaultLevel(level);
             }
         }
         for (Enumeration e = cfgprops.propertyNames(); e.hasMoreElements(); ) {
             String cfgkey = (String) e.nextElement();
             if (cfgkey.startsWith("loglevel.")) {
                 String cfgval = cfgprops.getProperty(cfgkey);
-                int level = Logger.getLogLevelByName(cfgval.toUpperCase());
+                int level = XLogger.getLogLevelByName(cfgval.toUpperCase());
                 if (level == 0) {
                     log.fatal(
                       "Unknown log level '" + cfgval + "' for " + cfgval);
                     System.exit(1);
                 } else {
-                    Logger.getLogger(
+                    XLogger.getLogger(
                       cfgkey.substring("loglevel.".length())).setLevel(level);
                 }
             }

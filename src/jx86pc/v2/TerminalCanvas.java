@@ -23,7 +23,7 @@ import java.awt.image.MemoryImageSource;
 public class TerminalCanvas extends Canvas implements Display, KeyListener
 {
 
-    protected static Logger log = Logger.getLogger("TerminalCanvas");
+    protected static XLogger log = XLogger.getLogger("TerminalCanvas");
 
     private ExternalInputHandler inputHandler;
 

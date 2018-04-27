@@ -7,33 +7,36 @@
 
 package jx86pc.v2;
 
+import java.util.logging.Logger;
+
 /**
  * Simulation of an Intel 8237 DMA Controller and DMA page registers.
  * <p>
  * The simulation is very PC-specific: cascaded mode and memory-to-memory
- * transfers are not supported.  Channel 0 only supports single-mode dummy
- * read transactions with autoinitialization enabled and DREQ driven by a
- * rate generator.
+ * transfers are not supported. Channel 0 only supports single-mode dummy read
+ * transactions with auto-initialization enabled and DREQ driven by a rate
+ * generator.
  * <p>
  * In reality, the DMA controller executes transactions in the background,
- * stealing bus cycles from the CPU. This simulation is not so detailed.
- * Block transfers are simulated as atomic events, and even series of single
- * transfers on a channel may be grouped into atomic events. The implications
- * are that<ul>
+ * stealing bus cycles from the CPU. This simulation is not so detailed. Block
+ * transfers are simulated as atomic events, and even series of single transfers
+ * on a channel may be grouped into atomic events. The implications are that
+ * <ul>
  * <li>to a simulated device, it appears as if the transfer takes zero time;
  * <li>the simulated CPU never observes partially completed transfers;
  * <li>the simulated CPU does not slow down during DMA transfers.
  * </ul>
  * <p>
- * This should not matter much, except that software which monitors single
- * mode transfers may be surprised to see them occur in atomic groups.
+ * This should not matter much, except that software which monitors single mode
+ * transfers may be surprised to see them occur in atomic groups.
  */
 public class I8237 implements IOPortHandler
 {
+    private static final Logger logger = Logger.getLogger(I8237.class.getName());
 
     public static final long CYCLETIME = Scheduler.CLOCKRATE / 4772700;
 
-    protected static Logger log = Logger.getLogger("I8237");
+    protected static XLogger log = XLogger.getLogger("I8237");
 
     /** Switches between low/high byte of address and count registers. */
     private boolean msbFlipFlop;

@@ -32,11 +32,11 @@ public class KeyInputEvent extends ExternalInputEvent
         try {
             getKeyLocationMethod =
               KeyEvent.class.getMethod("getKeyLocation", new Class[0]);
-            Logger.getLogger("main").debug(
+            XLogger.getLogger("main").debug(
               "Using KeyEvent.getKeyLocation()");
         } catch (NoSuchMethodException e) {
             getKeyLocationMethod = null;
-            Logger.getLogger("main").debug(
+            XLogger.getLogger("main").debug(
               "No support for KeyEvent.getKeyLocation()");
         }
     }

@@ -32,7 +32,7 @@ package jx86pc.v2;
 public class FloppyController implements IOPortHandler, DmaDevice
 {
 
-    protected static Logger log = Logger.getLogger("FloppyCtl");
+    protected static XLogger log = XLogger.getLogger("FloppyCtl");
 
     /** Command execution time (50 us, arbitrary value). */
     private static final long COMMANDDELAY = 50000;

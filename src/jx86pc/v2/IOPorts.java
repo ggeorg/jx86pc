@@ -20,7 +20,7 @@ public class IOPorts
         int base, n;
     }
 
-    protected static Logger log = Logger.getLogger("IOPorts");
+    protected static XLogger log = XLogger.getLogger("IOPorts");
 
     private static final int N1 = 256;
     private static final int N2 = 16;

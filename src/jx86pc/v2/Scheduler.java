@@ -5,6 +5,9 @@
 
 package jx86pc.v2;
 import java.util.ArrayList;
+import java.util.PriorityQueue;
+
+import jx86pc.v1.Logger;
 
 
 /**
@@ -35,8 +38,10 @@ public class Scheduler implements ExternalInputHandler
  * but for now I want to keep it because we may need it again at
  * some point and it is pretty delicate and difficult to recreate.
  */
+    
+    private static final Logger logger = Logger.getLogger(Scheduler.class.getName());
 
-    protected static Logger log = Logger.getLogger("Scheduler");
+    protected static XLogger log = XLogger.getLogger("Scheduler");
 
     private static final long NOTASK = Long.MAX_VALUE;
     private static final long STOPPING = Long.MIN_VALUE;
@@ -66,7 +71,7 @@ public class Scheduler implements ExternalInputHandler
     private long syncWallTimeMillis;
 
     /** Queue containing pending synchronous events. */
-    private PriorityQueue pq;
+    private PriorityQueue<Task> pq;
 
     /** Ordered list of pending asynchronous events (external input events). */
     private ArrayList pendingInput;
@@ -117,14 +122,13 @@ public class Scheduler implements ExternalInputHandler
 
 
     /** Constructs the Scheduler object. */
-    public Scheduler()
-    {
-        currentTime = 0;
-        nextTime = NOTASK;
-        syncWallTimeMillis = System.currentTimeMillis();
-        syncTimeSaldo = 0;
-        pq = new PriorityQueue();
-        pendingInput = new ArrayList();
+    public Scheduler() {
+	currentTime = 0;
+	nextTime = NOTASK;
+	syncWallTimeMillis = System.currentTimeMillis();
+	syncTimeSaldo = 0;
+	pq = new PriorityQueue<>((Task o1, Task o2) -> Long.compare(o1.nextTime, o2.nextTime));
+	pendingInput = new ArrayList();
     }
 
 
@@ -168,12 +172,13 @@ public class Scheduler implements ExternalInputHandler
 
 
     /**
-     * Returns current time in nanoseconds.
-     * This method may safely be called from asynchronous context.
+     * Returns current time in nanoseconds. This method may safely be called from
+     * asynchronous context.
+     * 
+     * @return current time in nanoseconds.
      */
-    public long getCurrentTime()
-    {
-        return currentTime;
+    public long getCurrentTime() {
+	return currentTime;
     }
 
 
@@ -185,7 +190,8 @@ public class Scheduler implements ExternalInputHandler
                 throw new IllegalStateException("Task already scheduled");
             tsk.nextTime = t;
         }
-        pq.add(tsk, t);
+        //pq.add(tsk, t);
+        pq.add(tsk);
         if (t < nextTime)
             nextTime = t;
     }
@@ -200,7 +206,8 @@ public class Scheduler implements ExternalInputHandler
                 throw new IllegalStateException("Task already scheduled");
             tsk.nextTime = t;
         }
-        pq.add(tsk, t);
+        //pq.add(tsk, t);
+        pq.add(tsk);
         if (t < nextTime)
             nextTime = t;
     }
@@ -216,28 +223,29 @@ public class Scheduler implements ExternalInputHandler
             tsk.nextTime = t;
             tsk.interval = interval;
         }
-        pq.add(tsk, t);
+        //pq.add(tsk, t);
+        pq.add(tsk);
         if (t < nextTime)
             nextTime = t;
     }
 
 
     /**
-     * Cancels all pending events and stop the simulation.
-     * This method may safely be called from asynchronous context.
+     * Cancels all pending events and stop the simulation. This method may safely be
+     * called from asynchronous context.
      */
-    public synchronized void stopSimulation()
-    {
-        Task tsk = (Task) pq.removeFirst();
-        while (tsk != null) {
-            tsk.cancel();
-            tsk = (Task) pq.removeFirst();
-        }
-        pq.clear();
-        nextTime = STOPPING;
-        // Kick simulation thread
-        notify();
-        cpu.setReschedule();
+    public synchronized void stopSimulation() {
+	// Task tsk = (Task) pq.removeFirst();
+	Task tsk = (Task) pq.poll();
+	while (tsk != null) {
+	    tsk.cancel();
+	    tsk = (Task) pq.poll();
+	}
+	pq.clear();
+	nextTime = STOPPING;
+	// Kick simulation thread
+	notify();
+	cpu.setReschedule();
     }
 
 
@@ -422,8 +430,10 @@ public class Scheduler implements ExternalInputHandler
         if (nextTime > currentTime || nextTime == STOPPING)
             return null;
 
-        Task tsk = (Task) pq.removeFirst();
-        nextTime = pq.minPrio();
+        //Task tsk = (Task) pq.removeFirst();
+        Task tsk = (Task) pq.poll();
+        //nextTime = pq.minPrio();
+        nextTime = minPrio(pq);
         if (tsk == null)
             return null;
 
@@ -438,7 +448,8 @@ public class Scheduler implements ExternalInputHandler
                     // Schedule next execution
                     long t = tsk.nextTime + tsk.interval;
                     tsk.nextTime = t;
-                    pq.add(tsk, t);
+                    //pq.add(tsk, t);
+                    pq.add(tsk);
                     if (t < nextTime) nextTime = t;
                 } else {
                     // Done with this task
@@ -448,6 +459,12 @@ public class Scheduler implements ExternalInputHandler
         }
 
         return tsk;
+    }
+
+
+    private long minPrio(PriorityQueue<Task> pq2) {
+	final Task tsk = pq.peek();
+	return tsk != null ? tsk.nextTime : Long.MAX_VALUE;
     }
 
 
@@ -470,7 +487,8 @@ public class Scheduler implements ExternalInputHandler
 
                 // Detect the end of the simulation run
                 if (nextTime == STOPPING) {
-                    nextTime = pq.minPrio();
+                    //nextTime = pq.minPrio();
+                    nextTime = minPrio(pq);
                     break;
                 }
 

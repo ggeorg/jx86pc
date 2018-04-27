@@ -22,7 +22,8 @@ import java.util.HashMap;
  *
  * So there.
  */
-public final class Logger
+@Deprecated
+public final class XLogger
 {
 
     /* Log levels */
@@ -52,11 +53,11 @@ public final class Logger
     private volatile int logLevel;
 
     /** Return the logger object with the given name. */
-    public static synchronized Logger getLogger(String name)
+    public static synchronized XLogger getLogger(String name)
     {
-        Logger log = (Logger) loggerTable.get(name);
+        XLogger log = (XLogger) loggerTable.get(name);
         if (log == null && name != null) {
-            log = new Logger(name);
+            log = new XLogger(name);
             loggerTable.put(name, log);
         }
         return log;
@@ -65,7 +66,7 @@ public final class Logger
     /** Set the scheduler object to consult for log timestamps. */
     public static synchronized void setScheduler(Scheduler sched)
     {
-        Logger.sched = sched;
+        XLogger.sched = sched;
     }
 
     /** Return the default log level. */
@@ -94,7 +95,7 @@ public final class Logger
     }
     
     /** Construct a named logger object with default log level. */
-    protected Logger(String name)
+    protected XLogger(String name)
     {
         this.name = name;
         this.logLevel = 0;

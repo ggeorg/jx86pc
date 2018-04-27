@@ -26,7 +26,7 @@ package jx86pc.v2;
 public class KeyboardController implements IOPortHandler
 {
 
-    protected static Logger log = Logger.getLogger("KeyboardController");
+    protected static XLogger log = XLogger.getLogger("KeyboardController");
 
     private Scheduler sched;
     private InterruptRequest irq;
